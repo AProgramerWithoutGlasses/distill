@@ -2,7 +2,10 @@ package service
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"strings"
+
 	"go.uber.org/zap"
 )
 
@@ -11,25 +14,27 @@ type GenContentReq struct {
 }
 
 type GenContentResp struct {
-	ContentID string
-	Title     string
-	Blocks    []Block
+	ContentID string `json:"content_id"`
+	Title     string `json:"title"`
+	Intro     string `json:"intro"`
+	Body      string `json:"body"`
+	Ending    string `json:"ending"`
 }
 
-type Block struct {
-	Type    string
-	Content string
-	Caption string
+// llmOutput 对应 LLM 返回的 JSON 结构
+type llmOutput struct {
+	Title  string `json:"title"`
+	Intro  string `json:"intro"`
+	Body   string `json:"body"`
+	Ending string `json:"ending"`
 }
 
-
-
-func (s *Service) GenContent(req GenContentReq) (string, error) {
+func (s *Service) GenContent(req GenContentReq) (*GenContentResp, error) {
 	// 抓取字幕
 	raw, err := youtubeTranscriptApi(req.URL)
 	if err != nil {
-		zap.L().Error("YoutubeTranscriptApi() err", zap.Error(err))
-		return "", fmt.Errorf("抓取字幕失败: %w", err)
+		zap.L().Error("youtubeTranscriptApi() err", zap.Error(err))
+		return nil, fmt.Errorf("抓取字幕失败: %w", err)
 	}
 	zap.L().Info("抓取字幕成功" + raw)
 
@@ -38,16 +43,56 @@ func (s *Service) GenContent(req GenContentReq) (string, error) {
 	zap.L().Info("提取文本成功" + transcript)
 
 	// 文章生成
-	article, err := s.llm.Chat(context.Background(), buildPrompt(transcript))
+	rawOutput, err := s.llm.Chat(context.Background(), buildPrompt(transcript))
 	if err != nil {
 		zap.L().Error("s.llm.Chat() err", zap.Error(err))
-		return "", fmt.Errorf("文章生成失败: %w", err)
+		return nil, fmt.Errorf("文章生成失败: %w", err)
+	}
+	zap.L().Info("生成文章成功" + rawOutput)
+
+	// 解析 LLM 输出
+	out, err := parseLLMOutput(rawOutput)
+	if err != nil {
+		zap.L().Error("parseLLMOutput() err", zap.Error(err), zap.String("raw", rawOutput))
+		return nil, fmt.Errorf("解析 LLM 输出失败: %w", err)
 	}
 
-	return article, nil
+	// 存储文章
+	id, err := s.dao.SaveArticle(req.URL, out.Title, out.Intro, out.Body, out.Ending)
+	if err != nil {
+		zap.L().Error("dao.SaveArticle() err", zap.Error(err))
+		return nil, fmt.Errorf("存储文章失败: %w", err)
+	}
+
+	return &GenContentResp{
+		ContentID: fmt.Sprintf("%d", id),
+		Title:     out.Title,
+		Intro:     out.Intro,
+		Body:      out.Body,
+		Ending:    out.Ending,
+	}, nil
 }
 
+// parseLLMOutput 从 LLM 输出中提取 JSON，兼容 markdown 代码块包裹的情况。
+func parseLLMOutput(raw string) (*llmOutput, error) {
+	raw = strings.TrimSpace(raw)
 
+	// 兼容 ```json ... ``` 包裹
+	if strings.HasPrefix(raw, "```") {
+		newline := strings.Index(raw, "\n")
+		if newline != -1 {
+			raw = raw[newline+1:]
+		}
+		raw = strings.TrimSuffix(strings.TrimSpace(raw), "```")
+		raw = strings.TrimSpace(raw)
+	}
+
+	var out llmOutput
+	if err := json.Unmarshal([]byte(raw), &out); err != nil {
+		return nil, fmt.Errorf("json.Unmarshal failed: %w", err)
+	}
+	return &out, nil
+}
 
 func buildPrompt(transcript string) string {
 	return fmt.Sprintf(`你是一个专业的内容创作者，擅长将英文长视频/播客的字幕内容提炼为高质量的中文微信公众号文章。
@@ -57,26 +102,18 @@ func buildPrompt(transcript string) string {
 %s
 </transcript>
 
-请将上述内容整理为一篇微信公众号文章，严格按照以下结构输出：
+请将上述内容整理为一篇微信公众号文章，严格按照以下 JSON 格式输出，不要输出任何其他内容：
 
-【标题】
-提炼核心信息，简洁有力，不超过20字。
-
-【导语】
-2-3句话说明这篇文章讲什么、为什么值得读，100字以内。
-
-【正文】
-- 背景铺垫：说明说话者是谁、在什么场合发表了这些观点
-- 核心观点展开：逐一呈现关键论点，可适当引用原文中的重要表述（翻译为中文）
-- 对中国读者的启发：这些内容对我们有什么参考价值
-
-【结尾】
-一句话总结全文 + 一个引导读者思考的问题。
-
-要求：
-- 忠实呈现原始内容，不过度演绎
-- 语言流畅自然，符合中文阅读习惯
-- 总长度控制在1500-3000字`, transcript)
+{
+  "title": "文章标题，提炼核心信息，简洁有力，不超过20字",
+  "intro": "导语，2-3句话说明这篇文章讲什么、为什么值得读，100字以内",
+  "body": "正文，包含：背景铺垫（说明者是谁、在什么场合发表观点）、核心观点展开（逐一呈现关键论点，可引用原文重要表述并翻译为中文）、对中国读者的启发",
+  "ending": "结尾，一句话总结全文 + 一个引导读者思考的问题"
 }
 
-
+要求：
+- 输出纯 JSON，不要加 markdown 代码块
+- 忠实呈现原始内容，不过度演绎
+- 语言流畅自然，符合中文阅读习惯
+- body 总长度控制在1500-3000字`, transcript)
+}

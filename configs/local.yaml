@@ -6,7 +6,7 @@ mysql:
   port: 3306
   user: "root"
   password: "123456"
-  dbname: "test"
+  dbname: "distill"
 
 redis:
   addr: "localhost:6379"
