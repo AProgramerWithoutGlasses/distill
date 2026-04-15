@@ -13,8 +13,8 @@ type Dao struct {
 
 func Init(app *settings.AppConfig) *Dao {
 	dao := &Dao{
-		db:  initDB(app.MySQLConfig),
-		rdb: initRDB(app.RedisConfig),
+		//db:  initDB(app.MySQLConfig),
+		//rdb: initRDB(app.RedisConfig),
 	}
 	return dao
 }

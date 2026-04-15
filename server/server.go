@@ -19,7 +19,10 @@ func initRouter() *gin.Engine {
 	r.Use(logger.GinLogger(), logger.GinRecovery(true), middleware.CORSMiddleware())
 
 	// jwt认证中间件
-	r.Use(middleware.JWTAuthMiddleware())
+	//r.Use(middleware.JWTAuthMiddleware())
+
+	api := r.Group("/api")
+	api.POST("/gen-content", genContent)
 
 	r.POST("/test", test)
 

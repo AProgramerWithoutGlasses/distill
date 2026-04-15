@@ -19,3 +19,8 @@ log:
   max_size: 100
   max_age: 100
   max_backups: 100
+
+llm:
+  api_key: "sk-2c4e9ad917cf48d8ad834dc5b98e7e01"
+  model: "deepseek-reasoner"
+  base_url : "https://api.deepseek.com"
