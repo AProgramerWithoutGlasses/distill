@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"goweb_staging/pkg/llm"
 	"strings"
 
 	"go.uber.org/zap"
@@ -43,7 +44,7 @@ func (s *Service) GenContent(req GenContentReq) (*GenContentResp, error) {
 	zap.L().Info("提取文本成功" + transcript)
 
 	// 文章生成
-	rawOutput, err := s.llm.Chat(context.Background(), buildPrompt(transcript))
+	rawOutput, err := llm.LLMclient.Chat(context.Background(), buildPrompt(transcript))
 	if err != nil {
 		zap.L().Error("s.llm.Chat() err", zap.Error(err))
 		return nil, fmt.Errorf("文章生成失败: %w", err)

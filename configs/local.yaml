@@ -24,3 +24,6 @@ llm:
   api_key: "sk-2c4e9ad917cf48d8ad834dc5b98e7e01"
   model: "deepseek-reasoner"
   base_url : "https://api.deepseek.com"
+
+youtube:
+ api_key: "AIzaSyAzI_7kpR8HYEkWg-J_RX4c2YNAPumby1o"

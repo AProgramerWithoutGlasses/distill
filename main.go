@@ -3,14 +3,16 @@ package main
 import (
 	"context"
 	"fmt"
-	"go.uber.org/zap"
 	"goweb_staging/logger"
+	"goweb_staging/pkg"
 	"goweb_staging/pkg/settings"
 	"goweb_staging/server"
 	"log"
 	"net/http"
 	"os"
 	"os/signal"
+
+	"go.uber.org/zap"
 
 	"syscall"
 	"time"
@@ -28,6 +30,9 @@ func main() {
 	if err != nil {
 		fmt.Printf("init logger failed,error: %v\n", err)
 	}
+
+	// 初始化第三方包
+	pkg.InitPkg(app)
 
 	// 开启服务
 	router := server.Init(app)

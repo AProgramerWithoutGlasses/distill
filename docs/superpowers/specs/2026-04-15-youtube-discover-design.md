@@ -2,7 +2,7 @@
 
 **日期**：2026-04-15
 **阶段**：Phase 2 — 内容自动化拉取（策略 A + B）
-**范围**：`service/discover_content.go`、`dao/dao.go`（新表）、`server/discover_handler.go`、配置扩展
+**范围**：`pkg/youtube.go`（新建）、`dao/dao.go`（新表）、`service/service.go`（集成）、配置扩展
 
 ---
 
@@ -71,18 +71,13 @@ type DiscoveredVideo struct {
 
 ### 4.2 `YouTubeDiscoverer` 结构体
 
-文件：`service/discover_content.go`
+文件：`pkg/youtube.go`
 
 ```go
-type YouTubeDiscoverer struct {
-    apiKey string
-    dao    *dao.Dao
-}
+type YouTubeDiscoverer struct{}
 
-func NewYouTubeDiscoverer(apiKey string, dao *dao.Dao) *YouTubeDiscoverer
-
-func (d *YouTubeDiscoverer) DiscoverNew(ctx context.Context) error
-func (d *YouTubeDiscoverer) DiscoverClassic(ctx context.Context) error
+func (d *YouTubeDiscoverer) TriggerDiscoverNew()
+func (d *YouTubeDiscoverer) TriggerDiscoverClassic()
 ```
 
 ### 4.3 常量
@@ -128,28 +123,21 @@ for each channel:
 
 ### 4.5 Service 集成
 
-`Service` 新增字段：
+`Service` 结构体不新增字段。`YouTubeDiscoverer` 在 `GenContent` 内作为局部变量使用：
+
 ```go
-type Service struct {
-    dao        *dao.Dao
-    single     *singleflight.Group
-    llm        *llm.Client
-    discoverer *YouTubeDiscoverer  // 新增
+func (s *Service) GenContent(req GenContentReq) (*GenContentResp, error) {
+    var youTubeDiscoverer YouTubeDiscoverer
+    youTubeDiscoverer.TriggerDiscoverNew()
+    youTubeDiscoverer.TriggerDiscoverClassic()
+    // ... 后续字幕抓取 → 生成文章流程不变
 }
 ```
 
-`InitService` 里从配置读取 YouTube API Key 并初始化 `discoverer`。
+### 4.6 调用方式
 
-### 4.6 HTTP 接口
-
-文件：`server/discover_handler.go`（新建）
-
-```
-POST /api/discover/new      → 触发策略 A
-POST /api/discover/classic  → 触发策略 B
-```
-
-两个接口均异步触发（在 goroutine 里执行，立即返回 `{"message": "started"}`），避免 HTTP 超时。
+`TriggerDiscoverNew` 和 `TriggerDiscoverClassic` 是 `YouTubeDiscoverer` 上的两个独立方法，
+在 `GenContent` 调用链内触发，不暴露为独立 HTTP 接口。
 
 ---
 
@@ -159,7 +147,7 @@ POST /api/discover/classic  → 触发策略 B
 ```yaml
 youtube:
   api_key: "AIza..."
-```
+```.
 
 `pkg/settings/settings.go` 新增：
 ```go
