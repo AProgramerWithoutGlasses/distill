@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"goweb_staging/pkg/llm"
+	"goweb_staging/pkg/youtube"
 	"strings"
 
 	"go.uber.org/zap"
@@ -31,6 +32,18 @@ type llmOutput struct {
 }
 
 func (s *Service) GenContent(req GenContentReq) (*GenContentResp, error) {
+	// 发现候选内容（策略 A + B），失败不阻断主流程
+	if newVideos := youtube.Youtubeclient.TriggerDiscoverNew(); len(newVideos) > 0 {
+		if err := s.dao.SaveDiscoveredVideos(newVideos); err != nil {
+			zap.L().Error("SaveDiscoveredVideos (A) failed", zap.Error(err))
+		}
+	}
+	if classicVideos := youtube.Youtubeclient.TriggerDiscoverClassic(); len(classicVideos) > 0 {
+		if err := s.dao.SaveDiscoveredVideos(classicVideos); err != nil {
+			zap.L().Error("SaveDiscoveredVideos (B) failed", zap.Error(err))
+		}
+	}
+
 	// 抓取字幕
 	raw, err := youtubeTranscriptApi(req.URL)
 	if err != nil {

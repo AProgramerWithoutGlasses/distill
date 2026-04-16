@@ -26,4 +26,4 @@ llm:
   base_url : "https://api.deepseek.com"
 
 youtube:
- api_key: "AIzaSyAzI_7kpR8HYEkWg-J_RX4c2YNAPumby1o"
+  api_key: "AIzaSyAzI_7kpR8HYEkWg-J_RX4c2YNAPumby1o"

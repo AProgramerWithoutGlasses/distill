@@ -10,16 +10,21 @@ type AppConfig struct {
 	Mode string `mapstructure:"mode"`
 	Port int    `mapstructure:"port"`
 
-	*LogConfig   `mapstructure:"log"`
-	*MySQLConfig `mapstructure:"mysql"`
-	*RedisConfig `mapstructure:"redis"`
-	*LLMConfig   `mapstructure:"llm"`
+	*LogConfig     `mapstructure:"log"`
+	*MySQLConfig   `mapstructure:"mysql"`
+	*RedisConfig   `mapstructure:"redis"`
+	*LLMConfig     `mapstructure:"llm"`
+	*YouTubeConfig `mapstructure:"youtube"`
 }
 
 type LLMConfig struct {
 	APIKey  string `mapstructure:"api_key"`
 	Model   string `mapstructure:"model"`
 	BaseURL string `mapstructure:"base_url"`
+}
+
+type YouTubeConfig struct {
+	APIKey string `mapstructure:"api_key"`
 }
 
 type MySQLConfig struct {
